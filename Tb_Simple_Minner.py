@@ -1,9 +1,8 @@
-﻿import hashlib
+import hashlib
 import json
 import time
 import random
 from tkinter import *
-import tkinter
 from tkinter import messagebox, scrolledtext, ttk
 from collections import OrderedDict
 import tkinter as tk
@@ -11,20 +10,23 @@ import ctypes
 import os
 import sys
 from tkinter import simpledialog
-import turtle
-# --- 常量定义 ---
-MINING_DIFFICULTY = 1  # 增加难度到 1
-MINING_REWARD = 5      # 增加奖励
+import turtle as tt
+
+
+
+
+MINING_DIFFICULTY = 1
+MINING_REWARD = 5
 GENESIS_PREV_HASH = "0" * 64
 BLOCKCHAIN_FILENAME = "improved_tcoin_chain.json"
 password_error_times = 0
 lockon = False
 
-# 密码文件设置
 
 SCRIPT_DIR = os.getcwd()
 Password_hash_file = os.path.join(SCRIPT_DIR, "password_hash.txt")
-DEFAULT_PASSWORD = "12345678"
+
+
 
 def alert(title, message):
     root = tk.Tk()
@@ -33,20 +35,67 @@ def alert(title, message):
     root.destroy()
 
 
+def password_creat():
+    temp_root = tk.Tk()
+    temp_root.withdraw()
+    times = 0
+
+    try:
+
+        word = simpledialog.askstring("创建密码", "请输入新密码:", show='*', parent=temp_root)
+
+        if word:
+            sha256_value = hashlib.sha256(word.encode()).hexdigest()
+            with open(Password_hash_file, "w", encoding='utf-8') as file:
+                file.write(sha256_value)
+
+
+            messagebox.showinfo("成功", "密码已经设定，程序将立即重启。", parent=temp_root)
+            temp_root.destroy()
+            return word
+            # python = sys.executable
+            # os.execl(python, python, *sys.argv)
+
+
+        else:
+            root = tk.Tk()
+            root.withdraw()
+            choice = messagebox.askyesno(title="退出警告", message="⚠确定要退出吗？")
+            if choice:
+                sys.exit(0)
+            else:
+                pass
+            root.destroy()
+
+
+    except Exception as e:
+        messagebox.showerror("错误", f"保存密码失败: {e}", parent=temp_root)
+        sys.exit()
+
+
+DEFAULT_PASSWORD=password_creat()
+
+
+
+
 def load_password():
     try:
         if os.path.exists(Password_hash_file):
             with open(Password_hash_file, 'r', encoding='utf-8') as f:
                 p = f.read().strip()
                 return p if p else hashlib.sha256(DEFAULT_PASSWORD.encode()).hexdigest()
+
         else:
-            # store hash of default password
+            password_creat()
+
             hashed = hashlib.sha256(DEFAULT_PASSWORD.encode()).hexdigest()
+
             with open(Password_hash_file, 'w', encoding='utf-8') as f:
                 f.write(hashed)
-            return hashed
+                return hashed
     except Exception:
         return hashlib.sha256(DEFAULT_PASSWORD.encode()).hexdigest()
+
 
 def ask_choice(title, message):
     root = tk.Tk()
@@ -57,10 +106,6 @@ def ask_choice(title, message):
 
 
 def password_recover():
-    """
-    重置密码并解锁，随后重启程序。
-    """
-    # 显式初始化，确保在 except 块中也能访问到变量
     temp_root = tk.Tk()
     temp_root.withdraw()
 
@@ -70,17 +115,10 @@ def password_recover():
 
             if word and len(word) >= 8:
                 sha256_value = hashlib.sha256(word.encode()).hexdigest()
-
-                # 1. 写入新密码
                 with open(Password_hash_file, "w", encoding='utf-8') as file:
                     file.write(sha256_value)
-
-                # 2. 解除锁定状态
                 lockon(False)
-
                 messagebox.showinfo("成功", "密码已重置，程序将立即重启。", parent=temp_root)
-
-                # 3. 执行重启逻辑
                 temp_root.destroy()
                 python = sys.executable
                 os.execl(python, python, *sys.argv)
@@ -90,13 +128,13 @@ def password_recover():
                 password_recover()
         else:
             sys.exit()
-
     except Exception as e:
         messagebox.showerror("错误", f"保存密码失败: {e}", parent=temp_root)
         sys.exit()
 
 
 PASSWORD = load_password()
+
 
 def lockon(status):
     with open("lockon.txt", "w") as file:
@@ -116,11 +154,7 @@ def check_lockon():
         return False
 
 
-
-
-
 def check_password(parent=None, max_attempts=3):
-    """弹出密码对话，最多尝试 max_attempts 次。返回 True/False。"""
     global password_error_times
     created_temp_root = False
     dialog_parent = parent
@@ -155,8 +189,6 @@ def check_password(parent=None, max_attempts=3):
     return False
 
 
-
-
 def start_app():
     root = Tk()
     root.withdraw()
@@ -184,12 +216,10 @@ def start_app():
             pass
 
 
-
 def full_launch():
+    start_app()
 
-        start_app()
-
-
+#别改
 class Wallet:
     @staticmethod
     def generate_key_pair():
@@ -210,10 +240,8 @@ class Wallet:
         if transaction_data.get('sender') == "SYSTEM":
             return True
         return len(signature) == 64 and public_key is not None
-    
 
-
-
+#别改
 class Blockchain:
     def __init__(self):
         self.pending_transactions = []
@@ -239,7 +267,6 @@ class Blockchain:
         block_string = json.dumps(ordered, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
 
-
     @staticmethod
     def _is_chain_valid_static(chain):
         if not chain:
@@ -253,7 +280,8 @@ class Blockchain:
 
             # 验证前序哈希
             block_copy = {k: v for k, v in prev_block.items() if k != 'hash'}
-            expected_prev_hash = hashlib.sha256(json.dumps(OrderedDict(sorted(block_copy.items())), sort_keys=True).encode()).hexdigest()
+            expected_prev_hash = hashlib.sha256(
+                json.dumps(OrderedDict(sorted(block_copy.items())), sort_keys=True).encode()).hexdigest()
             if current_block.get('previous_hash') != expected_prev_hash:
                 return False
 
@@ -271,14 +299,12 @@ class Blockchain:
 
             # 验证区块自带 ha
             block_copy = {k: v for k, v in current_block.items() if k != 'hash'}
-            expected_hash = hashlib.sha256(json.dumps(OrderedDict(sorted(block_copy.items())), sort_keys=True).encode()).hexdigest()
+            expected_hash = hashlib.sha256(
+                json.dumps(OrderedDict(sorted(block_copy.items())), sort_keys=True).encode()).hexdigest()
             if current_block.get('hash') != expected_hash:
                 return False
 
         return True
-
-   
-
 
     def register_new_wallet(self, user_alias):
         public_key, private_key = Wallet.generate_key_pair()
@@ -298,20 +324,20 @@ class Blockchain:
 
         if amount <= 0:
             messagebox.showwarning("警告", f"交易失败：金额 {amount} 必须是正数。")
-            
+
             return False
 
         # 1. 检查余额 (除了 SYSTEM 账户)
         if sender != "SYSTEM":
             if self.get_balance(sender) < amount:
                 messagebox.showerror("错误", f"交易失败：{sender} 余额不足。")
-               
+
                 return False
 
             # 2. 模拟签名
             if sender_private_key is None:
                 messagebox.showerror("错误", "交易失败：用户交易需要私钥进行签名。")
-                
+
                 return False
 
         transaction_data = {
@@ -424,25 +450,31 @@ class Blockchain:
 
             expected_prev_hash = self.hash_block(prev_block)
             if current_block.get('previous_hash') != expected_prev_hash:
-                messagebox.showerror("链校验失败", f"链条断裂：区块 {i} 的 previous_hash 与 区块 {i-1} 的哈希不符。", parent=tk._default_root)
+                messagebox.showerror("链校验失败", f"链条断裂：区块 {i} 的 previous_hash 与 区块 {i - 1} 的哈希不符。",
+                                     parent=tk._default_root)
                 return False
 
             last_proof = prev_block.get('proof', 0)
             transactions_to_verify = current_block.get('transactions', [])
             current_difficulty = self.difficulty_at_index(prev_block.get('index', 0))
-            if not self.is_valid_proof(last_proof, current_block.get('proof'), transactions_to_verify, current_difficulty):
-                messagebox.showerror("链校验失败", f"区块 {i} 的工作量证明无效（Nonce={current_block.get('proof')}，难度={current_difficulty}）。", parent=tk._default_root)
+            if not self.is_valid_proof(last_proof, current_block.get('proof'), transactions_to_verify,
+                                       current_difficulty):
+                messagebox.showerror("链校验失败",
+                                     f"区块 {i} 的工作量证明无效（Nonce={current_block.get('proof')}，难度={current_difficulty}）。",
+                                     parent=tk._default_root)
                 return False
 
             expected_hash = self.hash_block(current_block)
             if current_block.get('hash') != expected_hash:
-                messagebox.showerror("链校验失败", f"区块 {i} 的哈希值不正确。期望 {expected_hash}，但区块中为 {current_block.get('hash')}", parent=tk._default_root)
+                messagebox.showerror("链校验失败",
+                                     f"区块 {i} 的哈希值不正确。期望 {expected_hash}，但区块中为 {current_block.get('hash')}",
+                                     parent=tk._default_root)
                 return False
 
         return True
 
     def save_chain(self, filename):
-        
+
         try:
             data = {
                 'chain': self.chain,
@@ -474,7 +506,7 @@ class Blockchain:
             messagebox.showerror("加载失败", f"加载失败: {e}", parent=tk._default_root)
             return False
 
-
+#别改
 class BlockchainApp:
     def __init__(self, root, blockchain):
         self.blockchain = blockchain
@@ -556,10 +588,12 @@ class BlockchainApp:
         self.mine_button = ttk.Button(action_frame, text="✈单次挖矿 (PoW)", command=self.mine_block_single)
         self.mine_button.pack(pady=5, fill=X)
 
-        self.start_cont_mine_button = ttk.Button(action_frame, text="🚀 开始持续挖矿", command=self.start_continuous_mining)
+        self.start_cont_mine_button = ttk.Button(action_frame, text="🚀 开始持续挖矿",
+                                                 command=self.start_continuous_mining)
         self.start_cont_mine_button.pack(pady=5, fill=X)
 
-        self.stop_cont_mine_button = ttk.Button(action_frame, text="🛑 停止持续挖矿", command=self.stop_continuous_mining, state=DISABLED)
+        self.stop_cont_mine_button = ttk.Button(action_frame, text="🛑 停止持续挖矿",
+                                                command=self.stop_continuous_mining, state=DISABLED)
         self.stop_cont_mine_button.pack(pady=5, fill=X)
 
         ttk.Separator(action_frame, orient=HORIZONTAL).pack(fill=X, pady=10)
@@ -584,7 +618,8 @@ class BlockchainApp:
         self.safe_close_button.pack(pady=5, fill=X)
 
         # 难度显示
-        self.difficulty_label = ttk.Label(action_frame, text=f"当前挖矿难度: {self.blockchain.get_difficulty()} ('0'开头)")
+        self.difficulty_label = ttk.Label(action_frame,
+                                          text=f"当前挖矿难度: {self.blockchain.get_difficulty()} ('0'开头)")
         self.difficulty_label.pack(pady=(10, 0))
         ttk.Label(action_frame, text=f"矿工奖励: {MINING_REWARD} T币").pack(pady=(0, 5))
 
@@ -600,7 +635,8 @@ class BlockchainApp:
         chain_tab = ttk.Frame(self.notebook)
         self.notebook.add(chain_tab, text='完整区块链')
         self.chain_text = scrolledtext.ScrolledText(chain_tab, wrap=WORD, state=DISABLED, font=('Consolas', 9),
-                                                    background='#2e2e2e', foreground='#f0f0f0', insertbackground='#f0f0f0')
+                                                    background='#2e2e2e', foreground='#f0f0f0',
+                                                    insertbackground='#f0f0f0')
         self.chain_text.pack(fill=BOTH, expand=True)
 
         # 2. 余额 Tab
@@ -632,10 +668,12 @@ class BlockchainApp:
 
         if new_miner_id not in self.blockchain.wallets:
             address = self.blockchain.register_new_wallet(new_miner_id)
-            messagebox.showinfo("钱包创建成功", f"新钱包 '{new_miner_id}' 已创建！\n地址: {address}\n(私钥已存储，仅用于本模拟)")
+            messagebox.showinfo("钱包创建成功",
+                                f"新钱包 '{new_miner_id}' 已创建！\n地址: {address}\n(私钥已存储，仅用于本模拟)")
 
         self.miner_id = new_miner_id
-        self.update_status_bar(f"已切换到钱包: {self.miner_id} | 余额: {self.blockchain.get_balance(self.miner_id):.2f} T币")
+        self.update_status_bar(
+            f"已切换到钱包: {self.miner_id} | 余额: {self.blockchain.get_balance(self.miner_id):.2f} T币")
         self.update_display()
 
     def update_status_bar(self, message):
@@ -662,7 +700,7 @@ class BlockchainApp:
             return
 
         if self.blockchain.new_transaction(sender, recipient, amount, sender_private_key):
-            #messagebox.showinfo("成功", "交易已添加到待处理列表。")
+            # messagebox.showinfo("成功", "交易已添加到待处理列表。")
             self.recipient_entry.delete(0, END)
             self.amount_entry.delete(0, END)
             self.amount_entry.insert(0, "10.0")
@@ -715,7 +753,8 @@ class BlockchainApp:
             block, elapsed = self.mine_block_logic()
 
             self.update_status_bar(f"单次挖矿成功！用时: {elapsed:.2f}s | 区块 #{block['index']}")
-            messagebox.showinfo("挖矿成功", f"新区块 #{block['index']} 已被挖出！\n用时: {elapsed:.2f}s\n获得 {MINING_REWARD} T币奖励。")
+            messagebox.showinfo("挖矿成功",
+                                f"新区块 #{block['index']} 已被挖出！\n用时: {elapsed:.2f}s\n获得 {MINING_REWARD} T币奖励。")
 
             self.notebook.select(self.notebook.tabs()[0])
             self.update_display()
@@ -809,10 +848,11 @@ class BlockchainApp:
             "本人QQ：3353739856 电报：AnonUsAl\n"
             "我的论坛地址：http://anonusal.tttttttttt.top",
         )
+
     def change_password(self):
         new_password = simpledialog.askstring("更改密码", "请输入新密码：",
-                                                    parent=self.root,
-                                                    show='*')
+                                              parent=self.root,
+                                              show='*')
         if new_password:
             try:
                 hashed = hashlib.sha256(new_password.encode()).hexdigest()
@@ -821,7 +861,7 @@ class BlockchainApp:
                 messagebox.showinfo("成功", "密码已成功更改！")
             except Exception as e:
                 messagebox.showerror("错误", f"更改密码时出错：{e}")
-    
+
     def safe_close(self):
         if self.blockchain.save_chain(BLOCKCHAIN_FILENAME):
             messagebox.showinfo("保存成功", f"区块链数据已保存到 {BLOCKCHAIN_FILENAME}")
@@ -830,9 +870,7 @@ class BlockchainApp:
         else:
             messagebox.showerror("保存失败", "无法保存区块链。")
             sys.exit(1)
-            
-   
-        
+
     def on_tab_change(self, event):
         """当 Tab 改变时触发更新显示"""
         self.update_display()
@@ -846,10 +884,12 @@ class BlockchainApp:
             self.chain_text.config(state=NORMAL)
             self.chain_text.delete(1.0, END)
 
-            self.chain_text.insert(INSERT, f"--- T币 区块链 (总长: {len(self.blockchain.chain)} 区块) ---\n\n", "header")
+            self.chain_text.insert(INSERT, f"--- T币 区块链 (总长: {len(self.blockchain.chain)} 区块) ---\n\n",
+                                   "header")
 
             for block in reversed(self.blockchain.chain):  # 倒序显示，最新的在最前面
-                is_valid_hash = block.get('hash', '')[:self.blockchain.get_difficulty()] == '0' * self.blockchain.get_difficulty()
+                is_valid_hash = block.get('hash', '')[
+                                    :self.blockchain.get_difficulty()] == '0' * self.blockchain.get_difficulty()
 
                 self.chain_text.insert(INSERT, f"区块 #{block.get('index')} ", "block_index")
                 self.chain_text.insert(INSERT, f" (矿工: {block.get('miner')})\n")
@@ -860,14 +900,17 @@ class BlockchainApp:
                 self.chain_text.insert(INSERT, f"  证明(Nonce): {block.get('proof')}\n")
 
                 hash_tag = "valid_hash" if is_valid_hash else "invalid_hash"
-                self.chain_text.insert(INSERT, f"  难度检查: {is_valid_hash} (需要 {self.blockchain.get_difficulty()} 个 '0')\n", hash_tag)
+                self.chain_text.insert(INSERT,
+                                       f"  难度检查: {is_valid_hash} (需要 {self.blockchain.get_difficulty()} 个 '0')\n",
+                                       hash_tag)
 
                 self.chain_text.insert(INSERT, "  交易列表:\n", "transaction_header")
 
                 if not block.get('transactions'):
                     self.chain_text.insert(INSERT, "    (无交易)\n")
                 for tx in block.get('transactions', []):
-                    self.chain_text.insert(INSERT, f"    - {tx.get('sender')} -> {tx.get('recipient')} ({tx.get('amount', 0):.2f} T币)\n")
+                    self.chain_text.insert(INSERT,
+                                           f"    - {tx.get('sender')} -> {tx.get('recipient')} ({tx.get('amount', 0):.2f} T币)\n")
                 self.chain_text.insert(INSERT, "-" * 60 + "\n\n")
 
             # 配置标签样式
@@ -912,8 +955,10 @@ class BlockchainApp:
             else:
                 for tx in self.blockchain.pending_transactions:
                     self.pending_text.insert(INSERT, f"时间: {time.ctime(tx.get('timestamp'))}\n", "time")
-                    self.pending_text.insert(INSERT, f"- {tx.get('sender')} -> {tx.get('recipient')} ({tx.get('amount', 0):.2f} T币)\n", "tx_detail")
-                    self.pending_text.insert(INSERT, f"  签名: {tx.get('signature','')[:20]}...\n\n", "signature")
+                    self.pending_text.insert(INSERT,
+                                             f"- {tx.get('sender')} -> {tx.get('recipient')} ({tx.get('amount', 0):.2f} T币)\n",
+                                             "tx_detail")
+                    self.pending_text.insert(INSERT, f"  签名: {tx.get('signature', '')[:20]}...\n\n", "signature")
 
             self.pending_text.tag_config("header", font=('Consolas', 10, 'bold'), foreground="#FFA500")
             self.pending_text.tag_config("time", foreground="#808080")
@@ -926,14 +971,16 @@ class BlockchainApp:
         self.difficulty_label.config(text=f"当前挖矿难度: {current_difficulty} ('0'开头)")
 
         if self.is_mining_continous:
-            self.update_status_bar(f"⛏️ 持续挖矿中... | 钱包: {self.miner_id} | 余额: {current_balance:.2f} T币 | 待处理交易: {len(self.blockchain.pending_transactions)}")
+            self.update_status_bar(
+                f"⛏️ 持续挖矿中... | 钱包: {self.miner_id} | 余额: {current_balance:.2f} T币 | 待处理交易: {len(self.blockchain.pending_transactions)}")
         else:
-            self.update_status_bar(f"就绪。| 钱包: {self.miner_id} | 余额: {current_balance:.2f} T币 | 待处理交易: {len(self.blockchain.pending_transactions)}")
+            self.update_status_bar(
+                f"就绪。| 钱包: {self.miner_id} | 余额: {current_balance:.2f} T币 | 待处理交易: {len(self.blockchain.pending_transactions)}")
 
 
-#main
+# main
 if __name__ == "__main__":
-    if check_lockon()==False:
+    if check_lockon() == False:
         full_launch()
     else:
         password_recover()
@@ -941,7 +988,3 @@ if __name__ == "__main__":
 
 
 
-
-
-
-        
