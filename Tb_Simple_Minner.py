@@ -3,223 +3,172 @@ import json
 import time
 import random
 from tkinter import *
-from tkinter import messagebox, scrolledtext, ttk
+from tkinter import messagebox, scrolledtext, ttk,simpledialog
 from collections import OrderedDict
 import tkinter as tk
 import ctypes
 import os
 import sys
-from tkinter import simpledialog
 import turtle as tt
 
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+import hashlib
+import os
+import sys
 
-
-
+# --- 常量与配置 ---
 MINING_DIFFICULTY = 1
 MINING_REWARD = 5
 GENESIS_PREV_HASH = "0" * 64
 BLOCKCHAIN_FILENAME = "improved_tcoin_chain.json"
 password_error_times = 0
-lockon = False
 
-
+# 【修改1】删除了全局变量 lockon = False，避免干扰同名函数
 SCRIPT_DIR = os.getcwd()
 Password_hash_file = os.path.join(SCRIPT_DIR, "password_hash.txt")
 
 
+# --- 核心修改后的函数 ---
 
-def alert(title, message):
-    root = tk.Tk()
-    root.withdraw()
-    messagebox.showinfo(title, message)
-    root.destroy()
+def lockon(status):
+    """更新锁定状态到文件"""
+    # 将输入统一转为 "1" (锁定) 或 "0" (解锁)
+    val = "1" if status in [True, 1, "1"] else "0"
+    with open("lockon.txt", "w") as file:
+        file.write(val)
+
+
+def check_lockon():
+    """检查文件锁定状态"""
+    try:
+        if not os.path.exists("lockon.txt"):
+            return False
+        with open("lockon.txt", "r") as file:
+            return file.read(1) == "1"
+    except Exception:
+        return False
 
 
 def password_creat():
+    """创建初始密码"""
     temp_root = tk.Tk()
     temp_root.withdraw()
-    times = 0
-
     try:
+        while True:
+            word = simpledialog.askstring("创建密码", "请输入新密码 (建议8位以上):", show='*', parent=temp_root)
+            if word:
+                sha256_value = hashlib.sha256(word.encode()).hexdigest()
+                with open(Password_hash_file, "w", encoding='utf-8') as file:
+                    file.write(sha256_value)
 
-        word = simpledialog.askstring("创建密码", "请输入新密码:", show='*', parent=temp_root)
-
-        if word:
-            sha256_value = hashlib.sha256(word.encode()).hexdigest()
-            with open(Password_hash_file, "w", encoding='utf-8') as file:
-                file.write(sha256_value)
-
-
-            messagebox.showinfo("成功", "密码已经设定，程序将立即重启。", parent=temp_root)
-            temp_root.destroy()
-            return word
-            # python = sys.executable
-            # os.execl(python, python, *sys.argv)
-
-
-        else:
-            root = tk.Tk()
-            root.withdraw()
-            choice = messagebox.askyesno(title="退出警告", message="⚠确定要退出吗？")
-            if choice:
-                sys.exit(0)
+                messagebox.showinfo("成功", "密码已经设定，程序将立即重启。", parent=temp_root)
+                temp_root.destroy()
+                # 干净重启，确保全局变量刷新
+                python = sys.executable
+                os.execl(python, python, *sys.argv)
             else:
-                pass
-            root.destroy()
-
-
+                if messagebox.askyesno("退出警告", "未设置密码，确定要退出程序吗？", parent=temp_root):
+                    temp_root.destroy()
+                    sys.exit(0)
     except Exception as e:
-        messagebox.showerror("错误", f"保存密码失败: {e}", parent=temp_root)
-        sys.exit()
-
-
-DEFAULT_PASSWORD=password_creat()
-
-
+        messagebox.showerror("错误", f"保存密码失败: {e}")
+        sys.exit(1)
 
 
 def load_password():
-    try:
-        if os.path.exists(Password_hash_file):
-            with open(Password_hash_file, 'r', encoding='utf-8') as f:
-                p = f.read().strip()
-                return p if p else hashlib.sha256(DEFAULT_PASSWORD.encode()).hexdigest()
-
-        else:
-            password_creat()
-
-            hashed = hashlib.sha256(DEFAULT_PASSWORD.encode()).hexdigest()
-
-            with open(Password_hash_file, 'w', encoding='utf-8') as f:
-                f.write(hashed)
-                return hashed
-    except Exception:
-        return hashlib.sha256(DEFAULT_PASSWORD.encode()).hexdigest()
-
-
-def ask_choice(title, message):
-    root = tk.Tk()
-    root.withdraw()
-    result = messagebox.askyesno(title, message)
-    root.destroy()
-    return result
+    """从文件读取密码哈希"""
+    if os.path.exists(Password_hash_file):
+        with open(Password_hash_file, 'r', encoding='utf-8') as f:
+            p = f.read().strip()
+            if p: return p
+    return password_creat()
+PASSWORD = load_password()
 
 
 def password_recover():
     temp_root = tk.Tk()
     temp_root.withdraw()
-
     try:
         if messagebox.askyesno("安全验证", "是否重置密码并解除锁定？", parent=temp_root):
-            word = simpledialog.askstring("重置密码", "请输入新密码:", show='*', parent=temp_root)
+            while True:
+                word = simpledialog.askstring("重置密码", "请输入新密码 (至少8位):", show='*', parent=temp_root)
+                if word and len(word) >= 8:
+                    sha256_value = hashlib.sha256(word.encode()).hexdigest()
+                    with open(Password_hash_file, "w", encoding='utf-8') as file:
+                        file.write(sha256_value)
 
-            if word and len(word) >= 8:
-                sha256_value = hashlib.sha256(word.encode()).hexdigest()
-                with open(Password_hash_file, "w", encoding='utf-8') as file:
-                    file.write(sha256_value)
-                lockon(False)
-                messagebox.showinfo("成功", "密码已重置，程序将立即重启。", parent=temp_root)
-                temp_root.destroy()
-                python = sys.executable
-                os.execl(python, python, *sys.argv)
-            else:
-                messagebox.showwarning("提示", "密码过短或取消操作。是否重新设定？", parent=temp_root)
-                lockon(1)
-                password_recover()
+                    lockon(False)  # 解锁文件
+                    messagebox.showinfo("成功", "密码已重置，程序将立即重启。", parent=temp_root)
+                    temp_root.destroy()
+                    os.execl(sys.executable, sys.executable, *sys.argv)
+                else:
+                    if not messagebox.askyesno("提示", "密码过短或已取消。是否重新设定？", parent=temp_root):
+                        sys.exit()
         else:
             sys.exit()
     except Exception as e:
-        messagebox.showerror("错误", f"保存密码失败: {e}", parent=temp_root)
         sys.exit()
 
 
-PASSWORD = load_password()
-
-
-def lockon(status):
-    with open("lockon.txt", "w") as file:
-        file.write(str(status))
-
-
-def check_lockon():
-    try:
-        with open("lockon.txt", "r") as file:
-            tf = file.read(1)
-            if tf == "1":
-                return True
-            else:
-                return False
-
-    except FileNotFoundError:
-        return False
-
-
 def check_password(parent=None, max_attempts=3):
+    """密码验证主逻辑"""
     global password_error_times
-    created_temp_root = False
-    dialog_parent = parent
-    if dialog_parent is None:
-        dialog_parent = tk._default_root
-        if dialog_parent is None:
-            dialog_parent = Tk()
-            dialog_parent.withdraw()
-            created_temp_root = True
+    dialog_parent = parent if parent else tk.Tk()
+    if not parent: dialog_parent.withdraw()
 
     try:
-        for attempt in range(max_attempts):
-            ans = simpledialog.askstring("密码验证", "请输入密码:", show='*', parent=dialog_parent)
-            if ans is None:
-                break
+        if check_lockon():
+            messagebox.showwarning("已锁定", "程序处于锁定状态，请先重置密码。", parent=dialog_parent)
+            password_recover()
+            return False
+
+        while password_error_times < max_attempts:
+            ans = simpledialog.askstring("密码验证", f"请输入密码 (剩余 {max_attempts - password_error_times} 次):",
+                                         show='*', parent=dialog_parent)
+            if ans is None: return False
+
             ans_hash = hashlib.sha256(ans.encode()).hexdigest()
             if ans_hash == PASSWORD:
+                password_error_times = 0
                 return True
+
             password_error_times += 1
-            messagebox.showerror("错误", f"密码错误 ({password_error_times}/{max_attempts})", parent=dialog_parent)
             if password_error_times >= max_attempts:
-                messagebox.showwarning("警告", "密码输入错误次数过多，程序将退出。", parent=dialog_parent)
-                lockon(1)
+                lockon(True)  # 写入锁定
+                messagebox.showerror("错误", "错误次数过多，程序已锁定！", parent=dialog_parent)
                 password_recover()
-                pass
+                return False
+            else:
+                messagebox.showerror("错误", "密码错误！", parent=dialog_parent)
     finally:
-        if created_temp_root:
+        if not parent:
             try:
                 dialog_parent.destroy()
-            except Exception:
+            except:
                 pass
     return False
 
 
 def start_app():
-    root = Tk()
+    root = tk.Tk()
     root.withdraw()
-    ok = check_password(parent=root)
-    if not ok:
-        messagebox.showerror("错误", "密码验证失败，程序退出。", parent=root)
-        try:
-            root.destroy()
-        except Exception:
-            pass
+
+    # 执行验证 [cite: 106, 107]
+    if not check_password(parent=root):
         sys.exit(1)
 
+    # 验证通过后的初始化逻辑
     try:
         tcoin = Blockchain()
-        if getattr(tcoin, "created_genesis", False):
-            messagebox.showinfo("提示", "未找到本地区块链文件，已为您创建区块链文件", parent=root)
         app = BlockchainApp(root, tcoin)
-        root.deiconify()
-        root.mainloop()
+        root.deiconify() # 显示主窗口
+        root.mainloop()  # 进入主循环
     except Exception as e:
-        messagebox.showerror("程序错误", f"程序运行出错: {e}", parent=root)
-        try:
-            tcoin.save_chain(BLOCKCHAIN_FILENAME)
-        except Exception:
-            pass
+        messagebox.showerror("启动错误", f"程序启动失败: {e}")
+        sys.exit(1)
 
 
-def full_launch():
-    start_app()
-
-#别改
 class Wallet:
     @staticmethod
     def generate_key_pair():
@@ -244,6 +193,7 @@ class Wallet:
 #别改
 class Blockchain:
     def __init__(self):
+
         self.pending_transactions = []
         self.chain = []
         default_pub, default_priv = Wallet.generate_key_pair()
@@ -511,8 +461,9 @@ class BlockchainApp:
     def __init__(self, root, blockchain):
         self.blockchain = blockchain
         self.root = root
+
         self.root.title("TChain Studio")  # 窗口标题
-        self.root.geometry("1440x920")  # 固定窗口大小
+        self.root.geometry("1920x1080")  # 固定窗口大小
 
         # DPI 适配（Windows）
         try:
@@ -524,7 +475,7 @@ class BlockchainApp:
                 pass
 
         self.is_mining_continous = False
-        self.mining_interval_ms = 100  # 持续挖矿时，每次循环检查的间隔（毫秒）
+        self.mining_interval_var = tk.IntVar(value=100)
 
         # 矿工身份（使用默认钱包）
         self.miner_id = "AnonUsAl"
@@ -567,7 +518,7 @@ class BlockchainApp:
         ttk.Label(tx_frame, text="接收方:", width=10).grid(row=0, column=0, sticky=W, pady=2)
         self.recipient_entry = ttk.Entry(tx_frame)
         self.recipient_entry.grid(row=0, column=1, sticky="ew", padx=5)
-        self.recipient_entry.insert(0, "Bob")
+        self.recipient_entry.insert(0, "")
 
         ttk.Label(tx_frame, text="金额:", width=10).grid(row=1, column=0, sticky=W, pady=2)
         self.amount_entry = ttk.Entry(tx_frame)
@@ -596,7 +547,9 @@ class BlockchainApp:
                                                 command=self.stop_continuous_mining, state=DISABLED)
         self.stop_cont_mine_button.pack(pady=5, fill=X)
 
-        ttk.Separator(action_frame, orient=HORIZONTAL).pack(fill=X, pady=10)
+
+
+        ttk.Label(action_frame, text="区块链操作:", font=('Arial', 10, 'bold')).pack(pady=(5, 0))
 
         # 存取和验证
         self.save_button = ttk.Button(action_frame, text="💾保存区块链 (.json)", command=self.save_data)
@@ -608,21 +561,34 @@ class BlockchainApp:
         self.validate_button = ttk.Button(action_frame, text="🔗验证区块链完整性", command=self.validate_chain)
         self.validate_button.pack(pady=5, fill=X)
 
-        self.about_us = ttk.Button(action_frame, text="👽关于我们", command=self.about_us)
-        self.about_us.pack(pady=5, fill=X)
+        tx_frame.grid_columnconfigure(1, weight=1)
+
+
+
+        ttk.Label(action_frame, text="设置:", font=('Arial', 10, 'bold')).pack(pady=(5, 0))
 
         self.change_password_button = ttk.Button(action_frame, text="🔒更改密码", command=self.change_password)
         self.change_password_button.pack(pady=5, fill=X)
 
+
+
+        self.Settins = ttk.Button(action_frame, text="⚙设置", command=self.Settins)
+        self.Settins.pack(pady=5, fill=X)
+
         self.safe_close_button = ttk.Button(action_frame, text="🛡️安全退出", command=self.safe_close)
         self.safe_close_button.pack(pady=5, fill=X)
 
+
+        ttk.Separator(action_frame, orient=HORIZONTAL).pack(fill=X, pady=10)
+
+        self.about_us = ttk.Button(action_frame, text="👽关于我们", command=self.about_us)
+        self.about_us.pack(pady=5, fill=X)
         # 难度显示
         self.difficulty_label = ttk.Label(action_frame,
                                           text=f"当前挖矿难度: {self.blockchain.get_difficulty()} ('0'开头)")
         self.difficulty_label.pack(pady=(10, 0))
         ttk.Label(action_frame, text=f"矿工奖励: {MINING_REWARD} T币").pack(pady=(0, 5))
-
+        ttk.Separator(action_frame, orient=HORIZONTAL).pack(fill=X, pady=10)
         # --- 显示区 (右侧 - 使用 Notebook 实现 Tab) ---
         display_container = ttk.Frame(main_frame, padding="5")
         display_container.pack(side=RIGHT, fill=BOTH, expand=True)
@@ -658,22 +624,30 @@ class BlockchainApp:
         # 初始显示
         self.update_display()
 
+        self.mining_interval_ms = 100  # 默认 100 毫秒
+        self.mining_interval_var = tk.IntVar(value=100)
+
     def set_miner(self):
         """切换当前操作的矿工/发送方钱包"""
         new_miner_id = self.miner_id_var.get().strip()
+
+        # 新增：禁止伪造系统账户
+        if new_miner_id.upper() == "SYSTEM":
+            messagebox.showerror("权限错误", "禁止使用系统保留账户名！")
+            self.miner_id_var.set(self.miner_id)
+            return
+
         if not new_miner_id:
             messagebox.showerror("错误", "钱包名不能为空。")
-            self.miner_id_var.set(self.miner_id)  # 恢复原值
+            self.miner_id_var.set(self.miner_id)
             return
 
         if new_miner_id not in self.blockchain.wallets:
             address = self.blockchain.register_new_wallet(new_miner_id)
-            messagebox.showinfo("钱包创建成功",
-                                f"新钱包 '{new_miner_id}' 已创建！\n地址: {address}\n(私钥已存储，仅用于本模拟)")
+            messagebox.showinfo("钱包创建成功", f"新钱包 '{new_miner_id}' 已创建！")
 
         self.miner_id = new_miner_id
-        self.update_status_bar(
-            f"已切换到钱包: {self.miner_id} | 余额: {self.blockchain.get_balance(self.miner_id):.2f} T币")
+        self.update_status_bar(f"已切换到钱包: {self.miner_id}")
         self.update_display()
 
     def update_status_bar(self, message):
@@ -777,6 +751,7 @@ class BlockchainApp:
 
         self.update_status_bar("🚀 持续挖矿模式已启动...")
         self.continuous_mining_loop()
+        self.root.after(self.mining_interval_var.get(), self.continuous_mining_loop)
 
     def stop_continuous_mining(self):
         """停止持续挖矿模式"""
@@ -848,6 +823,86 @@ class BlockchainApp:
             "本人QQ：3353739856 电报：AnonUsAl\n"
             "我的论坛地址：http://anonusal.tttttttttt.top",
         )
+
+    def Settins(self):
+        """
+        完整的设置函数：
+        1. 修复了 AttributeError 报错
+        2. 解决了 Tk() 冲突导致的卡死问题
+        3. 增加了实时调整挖矿速度的功能
+        """
+        # 使用 Toplevel 替代 Tk()，防止主循环冲突
+        setting_window = tk.Toplevel(self.root)
+        setting_window.title("系统面板 & 设置")
+        setting_window.geometry("480x450")
+        setting_window.resizable(False, False)
+
+        # 确保设置窗口在最上层，且操作完成前不能点主界面
+        setting_window.transient(self.root)
+        setting_window.grab_set()
+
+        # 初始化检查：防止类属性不存在导致的报错
+        if not hasattr(self, 'mining_interval_ms'):
+            self.mining_interval_ms = 100
+        if not hasattr(self, 'mining_interval_var'):
+            self.mining_interval_var = tk.IntVar(value=self.mining_interval_ms)
+
+        tabs = ttk.Notebook(setting_window)
+        tabs.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # --- 选项卡 1: 挖矿性能 ---
+        mine_tab = ttk.Frame(tabs, padding=20)
+        tabs.add(mine_tab, text=" 挖矿性能 ")
+
+        ttk.Label(mine_tab, text="持续挖矿轮询延迟 (毫秒):", font=('微软雅黑', 10, 'bold')).pack(anchor=tk.W)
+
+        # 滑块绑定变量
+        delay_scale = tk.Scale(
+            mine_tab,
+            from_=10,
+            to=2000,
+            orient=tk.HORIZONTAL,
+            variable=self.mining_interval_var,
+            tickinterval=490,
+            length=350
+        )
+        delay_scale.pack(pady=10)
+
+        ttk.Label(mine_tab, text="* 延迟越低，挖矿速度越快，但CPU占用越高。", foreground="red").pack(anchor=tk.W)
+
+        def apply_changes():
+            # 同步变量
+            self.mining_interval_ms = self.mining_interval_var.get()
+            self.update_status_bar(f"设置已更新：挖矿延迟 {self.mining_interval_ms}ms")
+            messagebox.showinfo("成功", "参数已实时应用！", parent=setting_window)
+
+        ttk.Button(mine_tab, text="应用更改", command=apply_changes).pack(pady=20)
+
+        # --- 选项卡 2: 存储路径 ---
+        path_tab = ttk.Frame(tabs, padding=20)
+        tabs.add(path_tab, text=" 数据路径 ")
+
+        # 这里的 SCRIPT_DIR, Password_hash_file, BLOCKCHAIN_FILENAME 需确保在全局已定义
+        path_info = [
+            ("根目录:", os.getcwd()),
+            ("密码哈希:", "password_hash.txt"),
+            ("区块链库:", "improved_tcoin_chain.json")
+        ]
+
+        for label, val in path_info:
+            ttk.Label(path_tab, text=label, font=('微软雅黑', 9, 'bold')).pack(anchor=tk.W, pady=(5, 0))
+            e = ttk.Entry(path_tab)
+            e.insert(0, val)
+            e.config(state='readonly')
+            e.pack(fill=tk.X, pady=(0, 5))
+
+        ttk.Label(path_tab, text="提示: 修改这些文件可能导致数据丢失", foreground="gray").pack(pady=10)
+
+        # --- 底部按钮 ---
+        bottom_frame = ttk.Frame(setting_window)
+        bottom_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=20, pady=10)
+
+        ttk.Button(bottom_frame, text="确定并返回", command=setting_window.destroy).pack(side=tk.RIGHT)
 
     def change_password(self):
         new_password = simpledialog.askstring("更改密码", "请输入新密码：",
@@ -978,13 +1033,8 @@ class BlockchainApp:
                 f"就绪。| 钱包: {self.miner_id} | 余额: {current_balance:.2f} T币 | 待处理交易: {len(self.blockchain.pending_transactions)}")
 
 
-# main
 if __name__ == "__main__":
-    if check_lockon() == False:
-        full_launch()
-    else:
-        password_recover()
-
+    start_app()
 
 
 
