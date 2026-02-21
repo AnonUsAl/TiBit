@@ -10,37 +10,39 @@ import ctypes
 import os
 import sys
 import turtle as tt
-
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 import hashlib
 import os
 import sys
 
-# --- 常量与配置 ---
+
 MINING_DIFFICULTY = 1
 MINING_REWARD = 5
 GENESIS_PREV_HASH = "0" * 64
 BLOCKCHAIN_FILENAME = "improved_tcoin_chain.json"
 password_error_times = 0
 
-# 【修改1】删除了全局变量 lockon = False，避免干扰同名函数
+
 SCRIPT_DIR = os.getcwd()
 Password_hash_file = os.path.join(SCRIPT_DIR, "password_hash.txt")
 
-
-# --- 核心修改后的函数 ---
+def restart_program(temp_root):
+    try:
+        messagebox.showinfo("成功", "密码已经设定，程序将立即重启。", parent=temp_root)
+        temp_root.destroy()
+        temp_root.update()
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
+    except Exception as e:
+        messagebox.showerror("重启失败", f"错误：{str(e)}\n请手动重启")
 
 def lockon(status):
-    """更新锁定状态到文件"""
-    # 将输入统一转为 "1" (锁定) 或 "0" (解锁)
     val = "1" if status in [True, 1, "1"] else "0"
     with open("lockon.txt", "w") as file:
         file.write(val)
 
-
 def check_lockon():
-    """检查文件锁定状态"""
     try:
         if not os.path.exists("lockon.txt"):
             return False
@@ -51,7 +53,6 @@ def check_lockon():
 
 
 def password_creat():
-    """创建初始密码"""
     temp_root = tk.Tk()
     temp_root.withdraw()
     try:
@@ -64,9 +65,9 @@ def password_creat():
 
                 messagebox.showinfo("成功", "密码已经设定，程序将立即重启。", parent=temp_root)
                 temp_root.destroy()
-                # 干净重启，确保全局变量刷新
                 python = sys.executable
                 os.execl(python, python, *sys.argv)
+                
             else:
                 if messagebox.askyesno("退出警告", "未设置密码，确定要退出程序吗？", parent=temp_root):
                     temp_root.destroy()
@@ -77,7 +78,6 @@ def password_creat():
 
 
 def load_password():
-    """从文件读取密码哈希"""
     if os.path.exists(Password_hash_file):
         with open(Password_hash_file, 'r', encoding='utf-8') as f:
             p = f.read().strip()
@@ -98,10 +98,9 @@ def password_recover():
                     with open(Password_hash_file, "w", encoding='utf-8') as file:
                         file.write(sha256_value)
 
-                    lockon(False)  # 解锁文件
+                    lockon(False)
                     messagebox.showinfo("成功", "密码已重置，程序将立即重启。", parent=temp_root)
-                    temp_root.destroy()
-                    os.execl(sys.executable, sys.executable, *sys.argv)
+                    restart_program(temp_root)
                 else:
                     if not messagebox.askyesno("提示", "密码过短或已取消。是否重新设定？", parent=temp_root):
                         sys.exit()
@@ -112,7 +111,6 @@ def password_recover():
 
 
 def check_password(parent=None, max_attempts=3):
-    """密码验证主逻辑"""
     global password_error_times
     dialog_parent = parent if parent else tk.Tk()
     if not parent: dialog_parent.withdraw()
