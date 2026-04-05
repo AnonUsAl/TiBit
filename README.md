@@ -1,4 +1,4 @@
-﻿# TChain Studio
+﻿# TChain Studio（这只是一个比赛作品 没必要较真）
 
 简明文档（中文版）
 
